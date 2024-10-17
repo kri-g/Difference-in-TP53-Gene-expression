@@ -1,0 +1,58 @@
+if (!requireNamespace("BiocManager", quietly = TRUE)) {
+    install.packages("BiocManager")
+}
+if (!requireNamespace("reshape2", quietly = TRUE)) {
+    install.packages("reshape2")
+}
+if (!requireNamespace("ggplot2", quietly = TRUE)) {
+    install.packages("ggplot2")
+}
+if (!requireNamespace("GEOquery", quietly = TRUE)) {
+    install.packages("GEOquery")
+}
+if (!requireNamespace("limma", quietly = TRUE)) {
+    BiocManager::install("limma")
+}
+library(limma)
+library(GEOquery)
+library(ggplot2)
+library(reshape2)
+gseid <- "GSE72094"
+gsedata <- getGEO(gseid, GSEMatrix = TRUE)
+if (length(gsedata) == 0) {
+    stop("Dataset not found.")
+}
+exprdata <- exprs(gsedata[[1]])
+sampleinfo <- pData(gsedata[[1]])
+sampleinfo <- sampleinfo[match(colnames(exprdata), rownames(sampleinfo)), ]
+if (!"tp53_status:ch1" %in% colnames(sampleinfo)) {
+    stop("TP53 status column not found. Check column names.")
+}
+condition <- ifelse(sampleinfo$tp53_status:ch1 == "Mut", "Tumor", "Normal")
+sample_table <- data.frame(condition = factor(condition))
+row.names(sample_table) <- colnames(exprdata)
+design <- model.matrix(~ condition, data = sample_table)
+fit <- lmFit(exprdata, design)
+fit <- eBayes(fit)
+results <- topTable(fit, coef = 2, number = 10)
+print(head(results))
+volcanoplot(fit, coef = 2, main = "Volcano Plot of TP53 Expression", highlight = 10)
+topgenes <- topTable(fit, coef = 2, number = 10)
+topgeneids <- rownames(topgenes)
+topexprdata <- exprdata[topgeneids, ]
+exprmelted <- melt(topexprdata)
+exprmelted$condition <- rep(sample_table$condition, each = nrow(topexprdata))
+ggplot(exprmelted, aes(x = Var2, y = value, fill = condition)) +
+    geom_boxplot() +
+    labs(x = "Sample", y = "Expression Level", title = "Boxplot of Top 10 Differentially Expressed Genes") +
+    facet_wrap(~ Var1, scales = "free_y") +
+    theme(axis.text.x = element_text(angle = 90, hjust = 1), 
+          axis.text = element_text(size = 10))
+colorvector <- ifelse(sample_table$condition == "Tumor", "red", "blue")
+boxplot(exprdata[topgeneids, ],
+        main = "Gene Expression Boxplot", 
+        xlab = "Samples", 
+        ylab = "Expression Levels", 
+        col = colorvector,
+        las = 2)
+legend("topright", legend = c("Tumor", "Normal"), fill = c("red", "blue"))
