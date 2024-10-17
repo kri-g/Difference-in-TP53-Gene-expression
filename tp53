@@ -28,7 +28,7 @@ sampleinfo <- sampleinfo[match(colnames(exprdata), rownames(sampleinfo)), ]
 if (!"tp53_status:ch1" %in% colnames(sampleinfo)) {
     stop("TP53 status column not found. Check column names.")
 }
-condition <- ifelse(sampleinfo$tp53_status:ch1 == "Mut", "Tumor", "Normal")
+condition <- ifelse(sampleinfo$'tp53_status:ch1' == "Mut", "Tumor", "Normal")
 sample_table <- data.frame(condition = factor(condition))
 row.names(sample_table) <- colnames(exprdata)
 design <- model.matrix(~ condition, data = sample_table)
